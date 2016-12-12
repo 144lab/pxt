@@ -55,9 +55,6 @@ export function startMonitor(sendMsgToListeners: (s: string) => void) {
                         }
                         sendMsgToListeners(JSON.stringify(m))
                     }
-                    setInterval(() => {
-                        w.sendSerialAsync(new Buffer("foobar\n","utf8") as any)
-                    }, 3000)
                     return w
                 })
         }
