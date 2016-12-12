@@ -93,7 +93,7 @@ namespace pxt.usb {
         reset(): Promise<void>;
     }
 
-    export class HID {
+    class HID implements HF2.PacketIO {
         altIface: USBAlternateInterface;
         epIn: USBEndpoint;
         epOut: USBEndpoint;
@@ -105,7 +105,14 @@ namespace pxt.usb {
             throw new USBError(U.lf("USB error on device {0} ({1})", this.dev.productName, msg))
         }
 
-        sendRawPacketAsync(pkt: Uint8Array) {
+        reconnectAsync() {
+            initPromise = null
+            return this.dev.close()
+                .then(() => Promise.delay(500))
+                .then(getHidAsync)
+        }
+
+        sendPacketAsync(pkt: Uint8Array) {
             Util.assert(pkt.length <= 64)
             return this.dev.transferOut(this.epOut.endpointNumber, pkt)
                 .then(res => {
@@ -114,14 +121,14 @@ namespace pxt.usb {
                 })
         }
 
-        recvRawPacketAsync(): Promise<Uint8Array> {
+        recvPacketAsync(): Promise<Uint8Array> {
             return this.dev.transferIn(this.epIn.endpointNumber, 64)
                 .then(res => {
                     if (res.status != "ok")
                         this.error("USB IN transfer failed")
                     let arr = new Uint8Array(res.data.buffer)
                     if (arr.length == 0)
-                        return this.recvRawPacketAsync()
+                        return this.recvPacketAsync()
                     return arr
                 })
         }
@@ -134,8 +141,8 @@ namespace pxt.usb {
                 .then(() => {
                     let isHID = (iface: USBInterface) =>
                         iface.alternates[0].interfaceClass == 0xff &&
-                        iface.alternates[0].interfaceSubclass == 42 &&
-                        iface.alternates[0].endpoints[0].type == "interrupt";
+                        iface.alternates[0].interfaceSubclass == 42;
+                        //iface.alternates[0].endpoints[0].type == "interrupt";
                     let hid = dev.configurations[0].interfaces.filter(isHID)[0]
                     if (!hid)
                         this.error("cannot find USB HID interface")
@@ -144,8 +151,8 @@ namespace pxt.usb {
                     this.epOut = this.altIface.endpoints.filter(e => e.direction == "out")[0]
                     Util.assert(this.epIn.packetSize == 64);
                     Util.assert(this.epOut.packetSize == 64);
-                    Util.assert(this.epIn.type == "interrupt");
-                    Util.assert(this.epOut.type == "interrupt");
+                    //Util.assert(this.epIn.type == "interrupt");
+                    //Util.assert(this.epOut.type == "interrupt");
                     //console.log("USB-device", dev)
                     return dev.claimInterface(hid.interfaceNumber)
                 })
@@ -193,225 +200,28 @@ namespace pxt.usb {
         return (navigator as any).usb.requestDevice({ filters: [] })
     }
 
-    function hf2Async() {
+    function getHidAsync() {
         return requestDeviceAsync()
             .then(dev => {
-                let d = new HF2(dev)
-                return d.initAsync()
-                    .then(() => d)
+                let h = new HID(dev)
+                return h.initAsync()
+                    .then(() => h)
             })
     }
 
-    let initPromise: Promise<HF2>
+    function hf2Async() {
+        return getHidAsync()
+            .then(h => {
+                let w = new HF2.Wrapper(h)
+                return w.reconnectAsync(true)
+                    .then(() => w)
+            })
+    }
+
+    let initPromise: Promise<HF2.Wrapper>
     export function initAsync() {
         if (!initPromise)
             initPromise = hf2Async()
         return initPromise
-    }
-
-    const HF2_FLAG_PKT_LAST = 0xC0
-    const HF2_FLAG_PKT_BODY = 0x80
-    const HF2_FLAG_SERIAL = 0x40
-    const HF2_FLAG_MASK = 0xC0
-    const HF2_FLAG_RESERVED = 0x00
-    const HF2_SIZE_MASK = 63
-
-    const HF2_CMD_INFO = 0x0001
-    const HF2_CMD_RESET_INTO_APP = 0x0002
-    const HF2_CMD_RESET_INTO_BOOTLOADER = 0x0003
-    const HF2_CMD_WRITE_FLASH_PAGE = 0x0004
-    const HF2_CMD_MEM_WRITE_WORDS = 0x0005
-    const HF2_CMD_MEM_READ_WORDS = 0x0006
-    const HF2_CMD_START_FLASH = 0x0007
-    const HF2_CMD_BININFO = 0x0008
-    const HF2_CMD_CHKSUM_PAGES = 0x0009
-
-    const HF2_MODE_BOOTLOADER = 0x01
-    const HF2_MODE_USERSPACE = 0x02
-
-    const HF2_STATUS_OK = 0x00000000
-    const HF2_STATUS_INVALID_CMD = 0x00000001
-    const HF2_STATUS_WRONG_MODE = 0x00000002
-
-    export function write32(buf: Uint8Array, pos: number, v: number) {
-        buf[pos + 0] = (v >> 0) & 0xff;
-        buf[pos + 1] = (v >> 8) & 0xff;
-        buf[pos + 2] = (v >> 16) & 0xff;
-        buf[pos + 3] = (v >> 24) & 0xff;
-    }
-
-    export function write16(buf: Uint8Array, pos: number, v: number) {
-        buf[pos + 0] = (v >> 0) & 0xff;
-        buf[pos + 1] = (v >> 8) & 0xff;
-    }
-
-    export function read32(buf: Uint8Array, pos: number) {
-        return buf[pos] | (buf[pos + 1] << 8) | (buf[pos + 2] << 16) | (buf[pos + 3] << 32)
-    }
-
-    export function read16(buf: Uint8Array, pos: number) {
-        return buf[pos] | (buf[pos + 1] << 8)
-    }
-
-    export interface BootloaderInfo {
-        Header: string;
-        Parsed: {
-            Version: string;
-            Features: string;
-        };
-        VersionParsed: string;
-        Model: string;
-        BoardID: string;
-        FlashSize: string;
-    }
-
-    export class HF2 extends HID {
-        private cmdSeq = 0;
-        constructor(d: USBDevice) {
-            super(d)
-        }
-
-        private lock = new U.PromiseQueue();
-        infoRaw: string;
-        info: BootloaderInfo;
-        pageSize: number;
-        bootloaderMode = false;
-
-        onSerial = (buf: Uint8Array) => { };
-
-        talkAsync(cmd: number, data?: Uint8Array) {
-            let len = 4
-            if (data) len += data.length
-            let pkt = new Uint8Array(len)
-            write16(pkt, 0, cmd);
-            write16(pkt, 2, ++this.cmdSeq);
-            let saved = read32(pkt, 0)
-            if (data)
-                for (let i = 0; i < data.length; ++i)
-                    pkt[i + 4] = data[i]
-            return this.sendPacketAsync(pkt)
-                .then(() => this.recvPacketAsync())
-                .then(res => {
-                    let st = read32(res, 0)
-                    if ((st & 0x7fffffff) != saved)
-                        this.error("out of sync")
-                    if (st & 0x80000000)
-                        this.error("invalid command")
-                    return res.slice(4)
-                })
-        }
-
-        sendPacketAsync(buf: Uint8Array) {
-            return this.sendPacketCoreAsync(buf, false)
-        }
-
-        recvPacketAsync() {
-            let frames: Uint8Array[] = []
-
-            let loop = (): Promise<Uint8Array> =>
-                this.recvRawPacketAsync()
-                    .then(buf => {
-                        let tp = buf[0] & HF2_FLAG_MASK
-                        let len = buf[0] & 63
-                        let frame = new Uint8Array(len)
-                        for (let i = 0; i < len; ++i)
-                            frame[i] = buf[i + 1]
-                        if (tp == HF2_FLAG_SERIAL) {
-                            this.onSerial(frame)
-                            return loop()
-                        }
-                        frames.push(frame)
-                        if (tp == HF2_FLAG_PKT_BODY) {
-                            return loop()
-                        } else {
-                            U.assert(tp == HF2_FLAG_PKT_LAST)
-                            let total = 0
-                            for (let f of frames) total += f.length
-                            let r = new Uint8Array(total)
-                            let ptr = 0
-                            for (let f of frames) {
-                                for (let i = 0; i < f.length; ++i)
-                                    r[ptr++] = f[i]
-                            }
-                            return Promise.resolve(r)
-                        }
-                    })
-
-            return this.lock.enqueue("in", loop)
-        }
-
-        sendSerialAsync(buf: Uint8Array) {
-            return this.sendPacketCoreAsync(buf, true)
-        }
-
-        private sendPacketCoreAsync(buf: Uint8Array, serial: boolean) {
-            let frame = new Uint8Array(64)
-            let loop = (pos: number): Promise<void> => {
-                let len = buf.length - pos
-                if (len <= 0) return Promise.resolve()
-                if (len > 63) {
-                    len = 63
-                    frame[0] = HF2_FLAG_PKT_BODY;
-                } else {
-                    frame[0] = HF2_FLAG_PKT_LAST;
-                }
-                if (serial) frame[0] = HF2_FLAG_SERIAL;
-                frame[0] |= len;
-                for (let i = 0; i < len; ++i)
-                    frame[i + 1] = buf[pos + i]
-                return this.sendRawPacketAsync(frame)
-                    .then(() => loop(pos + len))
-            }
-            return this.lock.enqueue("out", () => loop(0))
-        }
-
-        flashAsync(blocks: pxtc.UF2.Block[]) {
-            U.assert(this.bootloaderMode)
-            let loopAsync = (pos: number): Promise<void> => {
-                if (pos >= blocks.length)
-                    return Promise.resolve()
-                let b = blocks[pos]
-                U.assert(b.payloadSize == this.pageSize)
-                let buf = new Uint8Array(4 + b.payloadSize)
-                write32(buf, 0, b.targetAddr)
-                U.memcpy(buf, 4, b.data, 0, b.payloadSize)
-                return this.talkAsync(HF2_CMD_WRITE_FLASH_PAGE, buf)
-                    .then(() => loopAsync(pos + 1))
-            }
-            return loopAsync(0)
-                .then(() =>
-                    this.talkAsync(HF2_CMD_RESET_INTO_APP)
-                        .catch(e => { }))
-                .then(() => {
-                    initPromise = null
-                })
-        }
-
-        initAsync() {
-            return super.initAsync()
-                .then(() => this.talkAsync(HF2_CMD_INFO))
-                .then(buf => {
-                    this.infoRaw = U.fromUTF8(U.uint8ArrayToString(buf));
-                    let info = {} as any
-                    ("Header: " + this.infoRaw).replace(/^([\w\-]+):\s*([^\n\r]*)/mg,
-                        (f, n, v) => {
-                            info[n.replace(/-/g, "")] = v
-                            return ""
-                        })
-                    this.info = info
-                    let m = /v(\d\S+)\s+(\S+)/.exec(this.info.Header)
-                    this.info.Parsed = {
-                        Version: m[1],
-                        Features: m[2],
-                    }
-                    console.log("Device connected", this.info)
-                    return this.talkAsync(HF2_CMD_BININFO)
-                })
-                .then(binfo => {
-                    this.bootloaderMode = binfo[0] == 1;
-                    this.pageSize = read32(binfo, 4)
-                })
-        }
-
     }
 }

@@ -51,7 +51,9 @@ namespace pxt {
             console.error(e);
             if (d) {
                 try {
-                    pxt.log(JSON.stringify(d, null, 2))
+                    // log it as object, so native object inspector can be used
+                    console.log(d)
+                    //pxt.log(JSON.stringify(d, null, 2))
                 } catch (e) { }
             }
         }
