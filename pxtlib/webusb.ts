@@ -106,7 +106,6 @@ namespace pxt.usb {
         }
 
         reconnectAsync() {
-            initPromise = null
             return this.dev.close()
                 .then(() => Promise.delay(500))
                 .then(getHidAsync)

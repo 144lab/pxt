@@ -498,6 +498,31 @@ namespace ts.pxtc.Util {
         }
     }
 
+    export class PromiseBuffer<T> {
+        private waiting: ((v: T) => void)[] = [];
+        private available: T[] = [];
+
+        drain() {
+            this.waiting = []
+            this.available = []
+        }
+
+        push(v: T) {
+            let f = this.waiting.shift()
+            if (f) f(v)
+            else this.available.push(v)
+        }
+
+        shiftAsync() {
+            if (this.available.length > 0)
+                return Promise.resolve(this.available.shift())
+            else
+                return new Promise<T>(resolve => {
+                    this.waiting.push(resolve)
+                })
+        }
+    }
+
     export function now(): number {
         return Date.now();
     }

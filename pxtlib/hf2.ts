@@ -125,6 +125,7 @@ namespace pxt.HF2 {
     export class Wrapper {
         private cmdSeq = 0;
         constructor(public io: PacketIO) {
+            this.startLoop()
         }
 
         private lock = new U.PromiseQueue();
@@ -134,6 +135,7 @@ namespace pxt.HF2 {
         flashSize: number;
         maxMsgSize: number = 63; // before we know, we assume 63
         bootloaderMode = false;
+        msgs = new U.PromiseBuffer<Uint8Array>()
 
         onSerial = (buf: Uint8Array, isStderr: boolean) => { };
 
@@ -145,12 +147,15 @@ namespace pxt.HF2 {
             this.flashSize = null
             this.maxMsgSize = 63
             this.bootloaderMode = false
+            this.msgs.drain()
         }
 
         reconnectAsync(first = false) {
             this.resetState()
             if (first) return this.initAsync()
-            return this.io.reconnectAsync()
+            let pio = this.io
+            this.io = null
+            return pio.reconnectAsync()
                 .then(io => {
                     this.io = io
                     return this.initAsync()
@@ -201,39 +206,65 @@ namespace pxt.HF2 {
         }
 
         private recvMsgAsync() {
-            let frames: Uint8Array[] = []
+            return this.msgs.shiftAsync()
+        }
 
-            let loop = (): Promise<Uint8Array> =>
-                this.io.recvPacketAsync()
-                    .then(buf => {
-                        let tp = buf[0] & HF2_FLAG_MASK
-                        let len = buf[0] & 63
-                        console.log(`msg tp=${tp} len=${len}`)
-                        let frame = new Uint8Array(len)
-                        for (let i = 0; i < len; ++i)
-                            frame[i] = buf[i + 1]
-                        if (tp & HF2_FLAG_SERIAL_OUT) {
-                            this.onSerial(frame, tp == HF2_FLAG_SERIAL_ERR)
-                            return loop()
-                        }
-                        frames.push(frame)
-                        if (tp == HF2_FLAG_CMDPKT_BODY) {
-                            return loop()
-                        } else {
-                            U.assert(tp == HF2_FLAG_CMDPKT_LAST)
-                            let total = 0
-                            for (let f of frames) total += f.length
-                            let r = new Uint8Array(total)
-                            let ptr = 0
-                            for (let f of frames) {
-                                for (let i = 0; i < f.length; ++i)
-                                    r[ptr++] = f[i]
+        private startLoop() {
+            const msgAsync = () => {
+                let frames: Uint8Array[] = []
+                let loop = (): Promise<Uint8Array> =>
+                    Promise.resolve()
+                        .then(() => {
+                            if (this.io == null)
+                                return Promise.delay(300)
+                                    .then(() => null)
+                            else
+                                return this.io.recvPacketAsync()
+                        })
+                        .then(buf => {
+                            if (!buf) return null
+                            let tp = buf[0] & HF2_FLAG_MASK
+                            let len = buf[0] & 63
+                            //console.log(`msg tp=${tp} len=${len}`)
+                            let frame = new Uint8Array(len)
+                            for (let i = 0; i < len; ++i)
+                                frame[i] = buf[i + 1]
+                            if (tp & HF2_FLAG_SERIAL_OUT) {
+                                this.onSerial(frame, tp == HF2_FLAG_SERIAL_ERR)
+                                return loop()
                             }
-                            return Promise.resolve(r)
-                        }
+                            frames.push(frame)
+                            if (tp == HF2_FLAG_CMDPKT_BODY) {
+                                return loop()
+                            } else {
+                                U.assert(tp == HF2_FLAG_CMDPKT_LAST)
+                                let total = 0
+                                for (let f of frames) total += f.length
+                                let r = new Uint8Array(total)
+                                let ptr = 0
+                                for (let f of frames) {
+                                    U.memcpy(r, ptr, f)
+                                    ptr += f.length
+                                }
+                                return Promise.resolve(r)
+                            }
+                        }, err => {
+                            console.log("Error", err)
+                            return Promise.delay(300)
+                                .then(() => null)
+                        })
+                return loop()
+            }
+
+            let loop = () =>
+                msgAsync()
+                    .then(buf => {
+                        if (buf)
+                            this.msgs.push(buf)
+                        loop()
                     })
 
-            return this.lock.enqueue("in", loop)
+            loop()
         }
 
         sendSerialAsync(buf: Uint8Array, useStdErr = false) {
@@ -245,7 +276,7 @@ namespace pxt.HF2 {
             let frame = new Uint8Array(64)
             let loop = (pos: number): Promise<void> => {
                 let len = buf.length - pos
-                console.log(`rem len ${len}`)
+                //console.log(`rem len ${len}`)
                 if (len <= 0) return Promise.resolve()
                 if (len > 63) {
                     len = 63
