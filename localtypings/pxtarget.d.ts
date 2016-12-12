@@ -65,6 +65,7 @@ declare namespace pxt {
     }
 
     interface AppSerial {
+        useHF2?: boolean;
         manufacturerFilter?: string; // used by node-serial
         log?: boolean;
     }

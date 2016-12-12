@@ -38,14 +38,54 @@ export function getHF2Devices() {
     return devices.filter(d => (d.release & 0xff00) == 0x4200)
 }
 
+export function startMonitor(sendMsgToListeners: (s: string) => void) {
+    let openDevs: pxt.Map<Promise<HF2.Wrapper>> = {};
+    const check = () => {
+        let devs = getHF2Devices().filter(d => !openDevs[d.path])
+        for (let d of devs) {
+            openDevs[d.path] = hf2ConnectAsync(d.path)
+                .then(w => {
+                    w.onSerial = (arr, iserr) => {
+                        let buf = new Buffer(arr)
+                        let m = {
+                            type: 'serial',
+                            id: d.path,
+                            data: buf.toString('utf8'),
+                            isStdError: iserr
+                        }
+                        sendMsgToListeners(JSON.stringify(m))
+                    }
+                    setInterval(() => {
+                        w.sendSerialAsync(new Buffer("foobar\n","utf8") as any)
+                    }, 3000)
+                    return w
+                })
+        }
+    }
+
+    try {
+        check()
+    } catch (e) {
+        console.warn("failed to get HF2 devices: " + e.message)
+        return
+    }
+
+    setInterval(check, 3000);
+}
+
+export function hf2ConnectAsync(path: string) {
+    let h = new HF2.Wrapper(new HID_IO(path))
+    return h.reconnectAsync(true).then(() => h)
+}
+
 let hf2Dev: Promise<HF2.Wrapper>
-export function hf2DeviceAsync() {
+export function hf2DeviceAsync(path: string = null) {
     if (!hf2Dev) {
         let devs = getHF2Devices()
         if (devs.length == 0)
             return Promise.reject(new HIDError("no devices found"))
-        let h = new HF2.Wrapper(new HID_IO(devs[0].path))
-        hf2Dev = h.reconnectAsync(true).then(() => h)
+        path = devs[0].path
+        hf2Dev = hf2ConnectAsync(path)
     }
     return hf2Dev
 }
