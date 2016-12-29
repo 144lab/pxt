@@ -270,7 +270,7 @@
   "minimum or maximum of 2 numbers":"2個の数のうち、小さい方または大きい方",
   "not %1":"%1ではない",
   "number of characters in the string":"文字列に含まれる文字の数",
-  "on start %1 %2":"on start %1 %2",
+  "on start %1 %2":"最初だけ %1 %2",
   "on start event":"on start event",
   "pick random 0 to %1":"0～%1の範囲の乱数",
   "pick random number":"乱数を作る",
