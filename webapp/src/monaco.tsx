@@ -1,4 +1,4 @@
-/// <reference path="../../built/monaco.d.ts" />
+/// <reference path="../../localtypings/monaco.d.ts" />
 /// <reference path="../../built/pxteditor.d.ts" />
 
 
@@ -529,7 +529,8 @@ export class Editor extends srceditor.Editor {
             let treerow = document.createElement('div');
             treeitem.setAttribute('role', 'treeitem');
             let fnElement = fnDef[ns];
-            let color = monacoEditor.convertColour(metaElement.metaData.color);
+            let color = pxt.blocks.convertColour(metaElement.metaData.color);
+            let icon = metaElement.metaData.icon;
             treeitem.onclick = (ev: MouseEvent) => {
                 pxt.tickEvent("monaco.toolbox.click");
 
@@ -638,18 +639,18 @@ export class Editor extends srceditor.Editor {
             group.appendChild(treeitem);
             treerow.className = 'blocklyTreeRow';
             treeitem.appendChild(treerow);
-            let icon = document.createElement('span');
+            let iconBlank = document.createElement('span');
             let iconNone = document.createElement('span');
             let label = document.createElement('span');
 
-            icon.className = 'blocklyTreeIcon';
-            icon.setAttribute('role', 'presentation');
-            iconNone.className = 'blocklyTreeIcon blocklyTreeIconNone';
+            iconBlank.className = 'blocklyTreeIcon';
+            iconBlank.setAttribute('role', 'presentation');
+            iconNone.className = `blocklyTreeIcon blocklyTreeIcon${icon ? ns : 'None'}`;
             iconNone.setAttribute('role', 'presentation');
             iconNone.style.display = 'inline-block';
 
             label.className = 'blocklyTreeLabel';
-            treerow.appendChild(icon);
+            treerow.appendChild(iconBlank);
             treerow.appendChild(iconNone);
             treerow.appendChild(label);
 
@@ -664,6 +665,10 @@ export class Editor extends srceditor.Editor {
             } else {
                 // Standard toolbox
                 treerow.style.borderLeft = `8px solid ${color}`;
+            }
+            if (icon) {
+                // Inject css
+                pxt.blocks.injectToolboxIconCss(`blocklyTreeIcon${ns}`,icon);
             }
             treerow.style.paddingLeft = '0px';
             label.innerText = `${Util.capitalize(ns)}`;
@@ -680,14 +685,6 @@ export class Editor extends srceditor.Editor {
                     this.undo();
                 }) : null)
         );
-    }
-
-    convertColour(colour: string) {
-        let hue = parseFloat(colour);
-        if (!isNaN(hue)) {
-            return Blockly.hueToRgb(hue);
-        }
-        return colour;
     }
 
     getId() {
