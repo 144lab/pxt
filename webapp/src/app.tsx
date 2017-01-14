@@ -77,6 +77,7 @@ interface IAppState {
     collapseEditorTools?: boolean;
     showBlocks?: boolean;
     showParts?: boolean;
+    fullscreen?: boolean;
 }
 
 let theEditor: ProjectView;
@@ -280,7 +281,7 @@ class ScriptSearch extends data.Component<ISettingsProps, ScriptSearchState> {
         const saveProject = () => {
             pxt.tickEvent("projects.save");
             this.hide();
-            this.props.parent.compile(true);
+            this.props.parent.saveAndCompile();
         }
         const renameProject = () => {
             pxt.tickEvent("projects.rename");
@@ -781,7 +782,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
 
     saveFile(view?: string) {
         pxt.tickEvent("editortools.save", {view: view, collapsed: this.getCollapsedState()});
-        this.props.parent.compile(true);
+        this.props.parent.saveAndCompile();
     }
 
     undo(view?: string) {
@@ -852,7 +853,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
         const runTooltip = state.running ? lf("Stop the simulator") : lf("Start the simulator");
         const makeTooltip = lf("Open assembly instructions");
         const restartTooltip = lf("Restart the simulator");
-        const collapseTooltip = collapsed ? lf("Hide the simulator") : lf("Show the simulator");
+        const collapseTooltip = collapsed ? lf("Show the simulator") : lf("Hide the simulator");
         const run = true;
 
         return <div className="ui equal width grid right aligned padded">
@@ -862,7 +863,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             <div className="left aligned column">
                                 <div className="ui icon small buttons">
                                     <sui.Button icon={`${collapsed ? 'toggle up' : 'toggle down'}`} class={`collapse-button ${hideEditorFloats ? 'disabled' : ''}`} title={collapseTooltip} onClick={() => this.toggleCollapse('mobile') } />
-                                    {compileBtn ? <sui.Button role="menuitem" class={`download-button download-button-full ${compileLoading ? 'loading' : ''}`} icon="download" title={compileTooltip} onClick={() => this.compile('mobile') } /> : undefined }
+                                    {compileBtn ? <sui.Button class={`download-button download-button-full ${compileLoading ? 'loading' : ''}`} icon="download" title={compileTooltip} onClick={() => this.compile('mobile') } /> : undefined }
                                 </div>
                             </div>
                             <div className="right aligned column">
@@ -879,10 +880,10 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             </div>
                         </div> :
                         <div className="ui equal width grid">
-                            <div className="left aligned one wide column">
+                            <div className="left aligned two wide column">
                                 <div className="ui vertical icon small buttons">
-                                    {run ? <sui.Button role="menuitem" class="" key='runmenubtn' icon={state.running ? "stop" : "play"} title={runTooltip} onClick={() => this.startStopSimulator('mobile') } /> : undefined }
-                                    {run ? <sui.Button key='restartbtn' class={`${compileBtn ? '' : ' fluid'} restart-button`} text={compileBtn ? undefined : lf("Restart") } icon="refresh" title={restartTooltip} onClick={() => this.restartSimulator('mobile') } /> : undefined }
+                                    {run ? <sui.Button class="" key='runmenubtn' icon={state.running ? "stop" : "play"} title={runTooltip} onClick={() => this.startStopSimulator('mobile') } /> : undefined }
+                                    {run ? <sui.Button key='restartbtn' class={`restart-button`} icon="refresh" title={restartTooltip} onClick={() => this.restartSimulator('mobile') } /> : undefined }
                                 </div>
                                 <div className="row" style={{paddingTop: "1rem"}}>
                                     <div className="ui vertical icon small buttons">
@@ -905,7 +906,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                                 <div className="row" style={{paddingTop: 0}}>
                                     <div className="column">
                                         <div className="ui icon large buttons">
-                                            {compileBtn ? <sui.Button role="menuitem" class={`download-button download-button-full ${compileLoading ? 'loading' : ''}`} icon="download" text={lf("Download") } title={compileTooltip} onClick={() => this.compile('mobile') } /> : undefined }
+                                            {compileBtn ? <sui.Button class={`download-button download-button-full ${compileLoading ? 'loading' : ''}`} icon="download" text={lf("Download") } title={compileTooltip} onClick={() => this.compile('mobile') } /> : undefined }
                                         </div>
                                     </div>
                                 </div>
@@ -917,7 +918,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                         <div className="ui grid seven column">
                             <div className="left aligned six wide column">
                                 <sui.Button icon={`${collapsed ? 'toggle up' : 'toggle down'}`} class={`large collapse-button ${hideEditorFloats ? 'disabled' : ''}`} title={collapseTooltip} onClick={() => this.toggleCollapse('tablet') } />
-                                {compileBtn ? <sui.Button role="menuitem" class={`large download-button download-button-full ${compileLoading ? 'loading' : ''}`} icon="download" text={lf("Download") } title={compileTooltip} onClick={() => this.compile('tablet') } /> : undefined }
+                                {compileBtn ? <sui.Button class={`large download-button download-button-full ${compileLoading ? 'loading' : ''}`} icon="download" text={lf("Download") } title={compileTooltip} onClick={() => this.compile('tablet') } /> : undefined }
                             </div>
                             <div className="column four wide">
                                 <sui.Button icon='save' class="large editortools-btn save-editortools-btn" title={lf("Save")} onClick={() => this.saveFile('tablet')} />
@@ -934,10 +935,10 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             </div>
                         </div>
                         : <div className="ui grid">
-                            <div className="one wide column">
+                            <div className="left aligned two wide column">
                                 <div className="ui vertical icon small buttons">
                                     {run ? <sui.Button role="menuitem" class="" key='runmenubtn' icon={state.running ? "stop" : "play"} title={runTooltip} onClick={() => this.startStopSimulator('tablet') } /> : undefined }
-                                    {run ? <sui.Button key='restartbtn' class={`${compileBtn ? '' : 'fluid'} restart-button`} text={compileBtn ? undefined : lf("Restart") } icon="refresh" title={restartTooltip} onClick={() => this.restartSimulator('tablet') } /> : undefined }
+                                    {run ? <sui.Button key='restartbtn' class={`restart-button`} icon="refresh" title={restartTooltip} onClick={() => this.restartSimulator('tablet') } /> : undefined }
                                 </div>
                                 <div className="row" style={{paddingTop: "1rem"}}>
                                     <div className="ui vertical icon small buttons">
@@ -945,7 +946,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                                     </div>
                                 </div>
                             </div>
-                            <div className="four wide column">
+                            <div className="three wide column">
                             </div>
                             <div className="five wide column">
                                 <div className="ui grid right aligned">
@@ -1411,6 +1412,8 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
             return;
         if (this.state.currFile == this.editorFile && !editorOverride)
             return;
+        if (this.state.currFile && this.editor)
+            this.editor.unloadFile();
         this.saveSettings();
 
         this.saveFile(); // before change
@@ -1723,12 +1726,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
                 pubCurrent: false
             };
             const files = JSON.parse(data.source) as pxt.Map<string>;
-            // basic xml validation of main.blocks.
-            if (files["main.blocks"] && !pxt.blocks.loadWorkspaceXml(files["main.blocks"], true)) {
-                // block code seems invalid., reset blocks to force decompilation
-                pxt.log('invalid blockly xml, reseting blockly');
-                files["main.blocks"] = '';
-            }
+             // we cannot load the workspace until we've loaded the project
             workspace.installAsync(h, files)
                 .done(hd => this.loadHeaderAsync(hd));
             return;
@@ -1885,6 +1883,13 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
         }, files).then(hd => this.loadHeaderAsync(hd))
     }
 
+    switchTypeScript() {
+        const mainPkg = pkg.mainEditorPkg();
+         const tsName = this.editorFile.getVirtualFileName();
+         const f = mainPkg.files[tsName];
+         this.setFile(f);
+    }
+
     saveTypeScriptAsync(open = false): Promise<void> {
         if (!this.editor || !this.state.currFile || this.editorFile.epkg != pkg.mainEditorPkg() || this.reload)
             return Promise.resolve();
@@ -1930,6 +1935,11 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
                 .done(() => window.location.reload(),
                 () => window.location.reload())
         });
+    }
+
+    saveAndCompile() {
+        this.saveFile();
+        this.compile(true);
     }
 
     compile(saveOnly = false) {
@@ -2000,6 +2010,11 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
     stopSimulator(unload = false) {
         simulator.stop(unload)
         this.setState({ running: false })
+    }
+
+    toggleSimulatorFullscreen() {
+        pxt.tickEvent("simulator.fullscreen", {view: 'computer', fullScreenTo: '' + !this.state.fullscreen});
+        this.setState({fullscreen: !this.state.fullscreen});
     }
 
     openInstructions() {
@@ -2287,6 +2302,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
         const runTooltip = this.state.running ? lf("Stop the simulator") : lf("Start the simulator");
         const makeTooltip = lf("Open assembly instructions");
         const restartTooltip = lf("Restart the simulator");
+        const fullscreenTooltip = this.state.fullscreen ? lf("Exit fullscreen mode") : lf("Launch in fullscreen");
         const isBlocks = !this.editor.isVisible || this.getPreferredEditor() == pxt.BLOCKS_PROJECT_NAME;
         const sideDocs = !(sandbox || pxt.options.light || targetTheme.hideSideDocs);
         const tutorial = this.state.tutorial;
@@ -2315,7 +2331,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
         document.title = this.state.header ? `${this.state.header.name} - ${pxt.appTarget.name}` : pxt.appTarget.name;
 
         return (
-            <div id='root' className={`full-abs ${this.state.hideEditorFloats || this.state.collapseEditorTools ? " hideEditorFloats" : ""} ${this.state.collapseEditorTools ? " collapsedEditorTools" : ""} ${!sideDocs || !this.state.sideDocsLoadUrl || this.state.sideDocsCollapsed ? "" : "sideDocs"} ${sandbox ? "sandbox" : ""} ${tutorial ? "tutorial" : ""} ${pxt.options.light ? "light" : ""}` }>
+            <div id='root' className={`full-abs ${this.state.hideEditorFloats || this.state.collapseEditorTools ? " hideEditorFloats" : ""} ${this.state.collapseEditorTools ? " collapsedEditorTools" : ""} ${this.state.fullscreen ? 'fullscreen' : ''} ${!sideDocs || !this.state.sideDocsLoadUrl || this.state.sideDocsCollapsed ? "" : "sideDocs"} ${sandbox ? "sandbox" : ""} ${tutorial ? "tutorial" : ""} ${pxt.options.light ? "light" : ""}` }>
                 <div id="menubar" role="banner">
                     <div className={`ui borderless fixed ${targetTheme.invertedMenu ? `inverted` : ''} menu`} role="menubar">
                         {sandbox ? undefined :
@@ -2336,7 +2352,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
                         </sui.Item> }
                         {docMenu ? <DocsMenuItem parent={this} /> : undefined}
                         {sandbox || tutorial ? undefined : <sui.DropdownMenuItem icon='setting' title={lf("More...") } class="more-dropdown-menuitem">
-                            {this.state.header ? <sui.Item role="menuitem" icon="options" text={lf("Rename...") } onClick={() => this.setFile(pkg.mainEditorPkg().lookupFile("this/pxt.json")) } /> : undefined}
+                            {this.state.header ? <sui.Item role="menuitem" icon="options" text={lf("Project Settings") } onClick={() => this.setFile(pkg.mainEditorPkg().lookupFile("this/pxt.json")) } /> : undefined}
                             {this.state.header && packages && sharingEnabled ? <sui.Item role="menuitem" text={lf("Embed Project...") } icon="share alternate" onClick={() => this.embed() } /> : null}
                             {this.state.header && packages ? <sui.Item role="menuitem" icon="disk outline" text={lf("Add Package...") } onClick={() => this.addPackage() } /> : undefined }
                             {this.state.header ? <sui.Item role="menuitem" icon="trash" text={lf("Delete Project") } onClick={() => this.removeProject() } /> : undefined }
@@ -2382,10 +2398,11 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
                         <div id="boardview" className={`ui vertical editorFloat`}>
                         </div>
                         <div className="ui item grid centered portrait hide simtoolbar">
-                            <div className="ui icon buttons">
+                            <div className={`ui icon buttons ${this.state.fullscreen ? 'massive' : ''}`}>
                                 {make ? <sui.Button icon='configure' class="fluid sixty secondary" text={lf("Make") } title={makeTooltip} onClick={() => this.openInstructions() } /> : undefined }
-                                {run ? <sui.Button key='runbtn' class={`${compileBtn ? '' : 'huge fluid'} play-button`} text={compileBtn ? undefined : this.state.running ? lf("Stop") : lf("Run") } icon={this.state.running ? "stop" : "play"} title={runTooltip} onClick={() => this.startStopSimulator() } /> : undefined }
-                                {run ? <sui.Button key='restartbtn' class={`${compileBtn ? '' : 'huge fluid'} restart-button`} text={compileBtn ? undefined : lf("Restart") } icon="refresh" title={restartTooltip} onClick={() => this.restartSimulator() } /> : undefined }
+                                {run ? <sui.Button key='runbtn' class={`play-button`} icon={this.state.running ? "stop" : "play"} title={runTooltip} onClick={() => this.startStopSimulator() } /> : undefined }
+                                {run ? <sui.Button key='restartbtn' class={`restart-button`} icon="refresh" title={restartTooltip} onClick={() => this.restartSimulator() } /> : undefined }
+                                {run ? <sui.Button key='fullscreenbtn' class={`fullscreen-button`} icon={`${this.state.fullscreen ? 'compress' : 'maximize'}`} title={fullscreenTooltip} onClick={() => this.toggleSimulatorFullscreen() } /> : undefined }
                             </div>
                         </div>
                         <div className="ui item portrait hide">
