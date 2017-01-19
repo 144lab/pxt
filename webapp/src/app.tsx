@@ -276,7 +276,7 @@ class ScriptSearch extends data.Component<ISettingsProps, ScriptSearchState> {
         const newProject = () => {
             pxt.tickEvent("projects.new");
             this.hide();
-            this.props.parent.newEmptyProject();
+            this.props.parent.newProject();
         }
         const saveProject = () => {
             pxt.tickEvent("projects.save");
@@ -308,6 +308,7 @@ class ScriptSearch extends data.Component<ISettingsProps, ScriptSearchState> {
                 {!this.state.searchFor && this.state.mode == ScriptSearchMode.Projects ?
                     <div className="ui vertical segment">
                         <sui.Button
+                            class="primary"
                             icon="file outline"
                             text={lf("New Project...") }
                             title={lf("Creates a new empty project") }
@@ -854,6 +855,10 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
         const makeTooltip = lf("Open assembly instructions");
         const restartTooltip = lf("Restart the simulator");
         const collapseTooltip = collapsed ? lf("Show the simulator") : lf("Hide the simulator");
+
+        const hasUndo = this.props.parent.editor.hasUndo();
+        const hasRedo = this.props.parent.editor.hasRedo();
+
         const run = true;
 
         return <div className="ui equal width grid right aligned padded">
@@ -869,7 +874,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             <div className="right aligned column">
                                 <div className="ui icon small buttons">
                                     <sui.Button icon='save' class="editortools-btn save-editortools-btn" title={lf("Save")} onClick={() => this.saveFile('mobile')} />
-                                    <sui.Button icon='undo' class="editortools-btn undo-editortools-btn" title={lf("Undo")} onClick={() => this.undo('mobile')} />
+                                    <sui.Button icon='undo' class={`editortools-btn undo-editortools-btn} ${!hasUndo ? 'disabled' : ''}`} title={lf("Undo")} onClick={() => this.undo('mobile')} />
                                 </div>
                             </div>
                             <div className="right aligned column">
@@ -897,7 +902,7 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                                 <div className="row">
                                     <div className="column">
                                         <div className="ui icon small buttons">
-                                            <sui.Button icon='undo' class="editortools-btn undo-editortools-btn" title={lf("Undo")} onClick={() => this.undo('mobile')} />
+                                            <sui.Button icon='undo' class={`editortools-btn undo-editortools-btn} ${!hasUndo ? 'disabled' : ''}`} title={lf("Undo")} onClick={() => this.undo('mobile')} />
                                             <sui.Button icon='zoom' class="editortools-btn zoomin-editortools-btn" title={lf("Zoom In")} onClick={() => this.zoomIn('mobile')} />
                                             <sui.Button icon='zoom out' class="editortools-btn zoomout-editortools-btn" title={lf("Zoom Out")} onClick={() => this.zoomOut('mobile')} />
                                         </div>
@@ -925,8 +930,8 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             </div>
                             <div className="column six wide right aligned">
                                 <div className="ui icon large buttons">
-                                    <sui.Button icon='undo' class="editortools-btn undo-editortools-btn" title={lf("Undo")} onClick={() => this.undo('tablet')} />
-                                    <sui.Button icon='repeat' class="editortools-btn redo-editortools-btn" title={lf("Redo")} onClick={() => this.redo('tablet')} />
+                                    <sui.Button icon='undo' class={`editortools-btn undo-editortools-btn} ${!hasUndo ? 'disabled' : ''}`} title={lf("Undo")} onClick={() => this.undo('tablet')} />
+                                    <sui.Button icon='repeat' class={`editortools-btn redo-editortools-btn} ${!hasRedo ? 'disabled' : ''}`} title={lf("Redo")} onClick={() => this.redo('tablet')} />
                                 </div>
                                 <div className="ui icon large buttons">
                                     <sui.Button icon='zoom' class="editortools-btn zoomin-editortools-btn" title={lf("Zoom In")} onClick={() => this.zoomIn('tablet')} />
@@ -972,8 +977,8 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             </div>
                             <div className="six wide column right aligned">
                                 <div className="ui icon large buttons">
-                                    <sui.Button icon='undo' class="editortools-btn undo-editortools-btn" title={lf("Undo")} onClick={() => this.undo()} />
-                                    <sui.Button icon='repeat' class="editortools-btn redo-editortools-btn" title={lf("Redo")} onClick={() => this.redo()} />
+                                    <sui.Button icon='undo' class={`editortools-btn undo-editortools-btn} ${!hasUndo ? 'disabled' : ''}`} title={lf("Undo")} onClick={() => this.undo()} />
+                                    <sui.Button icon='repeat' class={`editortools-btn redo-editortools-btn} ${!hasRedo ? 'disabled' : ''}`} title={lf("Redo")} onClick={() => this.redo()} />
                                 </div>
                                 <div className="ui icon large buttons">
                                     <sui.Button icon='zoom' class="editortools-btn zoomin-editortools-btn" title={lf("Zoom In")} onClick={() => this.zoomIn()} />
@@ -1003,8 +1008,8 @@ class EditorTools extends data.Component<ISettingsProps, {}> {
                             </div>
                             <div className="column right aligned">
                                 <div className="ui icon small buttons">
-                                    <sui.Button icon='undo' class="editortools-btn undo-editortools-btn" title={lf("Undo")} onClick={() => this.undo('computer')} />
-                                    <sui.Button icon='repeat' class="editortools-btn redo-editortools-btn" title={lf("Redo")} onClick={() => this.redo('computer')} />
+                                    <sui.Button icon='undo' class={`editortools-btn undo-editortools-btn} ${!hasUndo ? 'disabled' : ''}`} title={lf("Undo")} onClick={() => this.undo('computer')} />
+                                    <sui.Button icon='repeat' class={`editortools-btn redo-editortools-btn} ${!hasRedo ? 'disabled' : ''}`} title={lf("Redo")} onClick={() => this.redo('computer')} />
                                 </div>
                                 <div className="ui icon small buttons">
                                     <sui.Button icon='zoom' class="editortools-btn zoomin-editortools-btn" title={lf("Zoom In")} onClick={() => this.zoomIn('computer')} />
@@ -1589,8 +1594,6 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
                     projectName: h.name,
                     currFile: file
                 })
-                if (!sandbox)
-                    core.infoNotification(lf("Project loaded: {0}", h.name))
                 pkg.getEditorPkg(pkg.mainPkg).onupdate = () => {
                     this.loadHeaderAsync(h).done()
                 }
@@ -1815,7 +1818,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
                 let hexFile = JSON.parse(project) as pxt.cpp.HexFile;
                 return this.importHex(hexFile);
             }).catch(() => {
-                return this.newEmptyProject();
+                return this.newProject();
             })
     }
 
@@ -1849,7 +1852,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
 
     newEmptyProject(name?: string, documentation?: string) {
         this.newProject({
-            filesOverride: { "main.blocks": `<xml xmlns="http://www.w3.org/1999/xhtml"><block type="${ts.pxtc.ON_START_TYPE}"></block></xml>` },
+            filesOverride: { "main.blocks": `<xml xmlns="http://www.w3.org/1999/xhtml"></xml>` },
             name, documentation
         })
     }
@@ -2242,7 +2245,7 @@ export class ProjectView extends data.Component<IAppProps, IAppState> {
             }).then(() => {
                 return this.createProjectAsync({
                     filesOverride: {
-                        "main.blocks": "<xml xmlns=\"http://www.w3.org/1999/xhtml\">",
+                        "main.blocks": `<xml xmlns="http://www.w3.org/1999/xhtml"><block type="${ts.pxtc.ON_START_TYPE}"></block></xml>`,
                         "main.ts": "  "
                     },
                     name: tutorialId,
@@ -2688,7 +2691,7 @@ function handleHash(hash: { cmd: string; arg: string }) {
             break;
         case "newproject":
             pxt.tickEvent("hash.newproject")
-            editor.newEmptyProject();
+            editor.newProject();
             break;
         case "gettingstarted":
             pxt.tickEvent("hash.gettingstarted")
